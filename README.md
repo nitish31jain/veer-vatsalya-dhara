@@ -27,7 +27,7 @@ which deducts tokens. Tokens expire 45 days after purchase.
    ```bash
    npm install
    npm run db:migrate   # creates tables
-   npm run db:seed      # adds Daily (test only), Weekly, Monthly at ₹60/packet — edit in /admin/plans
+   npm run db:seed      # adds Weekly and Monthly plans at ₹60/packet — edit in /admin/plans
    npm run dev
    ```
 
@@ -50,6 +50,6 @@ Run `npm run db:migrate` against the production `DATABASE_URL` whenever the sche
 | `/admin/plans` | admin | Create/edit plans and prices |
 
 ## Test mode
-Set `TEST_MODE=true` to charge ₹1 per packet on every plan and show “Test only” plans
-(the Daily plan). Remove it (or set it to anything else) for launch: real plan prices
-apply and test-only plans are hidden.
+Set `TEST_MODE=true` to charge ₹1 per packet on every plan and show “Test only” plans.
+Remove it (or set it to anything else) for real plan prices; test-only plans are then
+hidden.
