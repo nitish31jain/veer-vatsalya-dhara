@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/tokens";
 import { daysUntil, formatDate, rupees, TOKEN_VALIDITY_DAYS } from "@/lib/format";
 import { BuyButton } from "@/components/BuyButton";
+import { ActivityLog } from "@/components/ActivityLog";
 import { effectivePricePaise, purchasablePlans } from "@/lib/plans";
 
 export default async function Dashboard() {
@@ -122,6 +123,8 @@ export default async function Dashboard() {
           </ul>
         )}
       </section>
+
+      <ActivityLog userId={user.id} />
 
       {recentOrders.length > 0 && (
         <section className="card">

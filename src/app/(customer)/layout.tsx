@@ -1,12 +1,16 @@
 import { auth } from "@/auth";
 import { Header } from "@/components/Header";
 import { isTestMode } from "@/lib/plans";
+import { getActiveStaff } from "@/lib/session";
 
 export default async function CustomerLayout({ children }: LayoutProps<"/">) {
   const session = await auth();
   const links = [
     { href: "/dashboard", label: "My Tokens" },
     { href: "/profile", label: "Profile" },
+    ...(session?.user?.isAdmin || (await getActiveStaff(session?.user?.email))
+      ? [{ href: "/deliver", label: "Deliveries" }]
+      : []),
     ...(session?.user?.isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
   return (

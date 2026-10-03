@@ -1,11 +1,12 @@
 import { requireAdmin } from "@/lib/session";
 import { notFound } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserById } from "@/auth";
 import { getBalance } from "@/lib/tokens";
 import { formatDate, rupees } from "@/lib/format";
-import { grantTokensAction } from "../../actions";
+import { assignCustomerAction, grantTokensAction } from "../../actions";
+import { ActivityLog } from "@/components/ActivityLog";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
 
@@ -17,11 +18,12 @@ export default async function CustomerDetail({ params, searchParams }: PageProps
   const user = await getUserById(id);
   if (!user) notFound();
 
-  const [{ balance }, batches, deliveries, orders] = await Promise.all([
+  const [{ balance }, batches, deliveries, orders, staffMembers] = await Promise.all([
     getBalance(id),
     db.select().from(schema.tokenBatches).where(eq(schema.tokenBatches.userId, id)).orderBy(desc(schema.tokenBatches.purchasedAt)),
     db.select().from(schema.deliveries).where(eq(schema.deliveries.userId, id)).orderBy(desc(schema.deliveries.deliveryDate)).limit(60),
     db.select().from(schema.orders).where(eq(schema.orders.userId, id)).orderBy(desc(schema.orders.createdAt)).limit(30),
+    db.select().from(schema.staff).orderBy(asc(schema.staff.name)),
   ]);
   const now = new Date();
 
@@ -46,6 +48,26 @@ export default async function CustomerDetail({ params, searchParams }: PageProps
           </div>
         </div>
       </section>
+
+      <section className="card">
+        <h2 className="mb-2 font-semibold">Delivery person</h2>
+        <form action={assignCustomerAction} className="flex gap-2">
+          <input type="hidden" name="userId" value={user.id} />
+          <input type="hidden" name="returnTo" value={`/admin/customers/${user.id}`} />
+          <select name="staffId" defaultValue={user.assignedStaffId ?? ""} className="input">
+            <option value="">Not assigned (only admin can mark)</option>
+            {staffMembers.map((m) => (
+              <option key={m.id} value={m.id} disabled={!m.active && m.id !== user.assignedStaffId}>
+                {m.name}
+                {m.active ? "" : " (access removed)"}
+              </option>
+            ))}
+          </select>
+          <SubmitButton className="btn-secondary">Save</SubmitButton>
+        </form>
+      </section>
+
+      <ActivityLog userId={user.id} limit={50} />
 
       <section className="card">
         <h2 className="mb-2 font-semibold">Add tokens manually</h2>

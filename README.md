@@ -47,7 +47,19 @@ Run `npm run db:migrate` against the production `DATABASE_URL` whenever the sche
 | `/payment/return` | customer | Confirms payment after Cashfree checkout |
 | `/admin` | admin | Daily delivery sheet: mark / undo, “mark all”, date navigation, search |
 | `/admin/customers` | admin | Customer list with balances, detail page, manual token grant |
+| `/admin/staff` | admin | Authorise delivery staff by Google email, assign houses, remove access |
 | `/admin/plans` | admin | Create/edit plans and prices |
+| `/deliver` | delivery staff | Today's assigned houses: mark delivered, undo own marks |
+
+## Delivery staff
+Admins add a delivery person (name + Google email) under **Delivery staff**, then tick the
+houses they deliver to. When that person signs in with Google they land on `/deliver`, which
+lists only their houses for today. Marking a delivery deducts tokens from that house.
+They cannot back-date deliveries, mark houses that aren't theirs, or undo other people's marks.
+Removing access takes effect immediately.
+
+Every token change (purchase, manual grant, delivery, undo) is written to an audit log with
+who did it and when, shown as **Token activity** on the customer's page and in admin.
 
 ## Test mode
 Set `TEST_MODE=true` to charge ₹1 per packet on every plan and show “Test only” plans.

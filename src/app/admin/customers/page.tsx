@@ -8,10 +8,12 @@ export default async function Customers({ searchParams }: PageProps<"/admin/cust
   await requireAdmin();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim().toLowerCase() : "";
-  const [users, balances] = await Promise.all([
+  const [users, balances, members] = await Promise.all([
     db.select().from(schema.users).orderBy(asc(schema.users.name)),
     activeBalances(),
+    db.select().from(schema.staff),
   ]);
+  const staffName = new Map(members.map((m) => [m.id, m.name]));
   const rows = users.filter(
     (u) =>
       !q ||
@@ -35,6 +37,9 @@ export default async function Customers({ searchParams }: PageProps<"/admin/cust
                 <span className="block truncate font-medium">{u.name}</span>
                 <span className="block truncate text-xs text-gray-500">
                   {u.whatsapp ? `+91 ${u.whatsapp}` : "No WhatsApp yet"} · {u.email}
+                </span>
+                <span className="block truncate text-xs text-gray-500">
+                  🚚 {u.assignedStaffId ? staffName.get(u.assignedStaffId) : "Not assigned"}
                 </span>
               </span>
               <span className="shrink-0 font-semibold">{balances.get(u.id) ?? 0}</span>

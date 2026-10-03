@@ -1,8 +1,17 @@
 import { and, asc, eq, gt, lt, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { TOKEN_VALIDITY_DAYS, istDayStart } from "./format";
+import { TOKEN_VALIDITY_DAYS, formatDate, istDayStart, rupees } from "./format";
 
-const { tokenBatches, orders, deliveries, deliveryAllocations } = schema;
+const { tokenBatches, orders, deliveries, deliveryAllocations, auditLog } = schema;
+
+/** Who performed a token change; recorded in the customer's audit log. */
+export type Actor = { email: string; name: string; role: "customer" | "admin" | "delivery" | "system" };
+
+export const PAYMENT_ACTOR: Actor = { email: "cashfree", name: "Online payment", role: "system" };
+
+function audit(actor: Actor, entry: { userId: string; action: string; tokensDelta: number; description: string }) {
+  return { ...entry, actorEmail: actor.email, actorName: actor.name, actorRole: actor.role };
+}
 
 function expiryFrom(start: Date) {
   return new Date(start.getTime() + TOKEN_VALIDITY_DAYS * 86_400_000);
@@ -48,20 +57,33 @@ export async function fulfillOrder(orderId: string) {
       purchasedAt: now,
       expiresAt: expiryFrom(now),
     });
+    await tx.insert(auditLog).values(
+      audit(PAYMENT_ACTOR, {
+        userId: order.userId,
+        action: "purchase",
+        tokensDelta: order.tokens,
+        description: `Bought ${order.planName}: ${order.tokens} tokens for ${rupees(order.amountPaise)}`,
+      }),
+    );
     return true;
   });
 }
 
-export async function grantTokens(userId: string, tokens: number, note: string) {
+export async function grantTokens(userId: string, tokens: number, note: string, actor: Actor) {
   const now = new Date();
-  await db.insert(tokenBatches).values({
-    userId,
-    source: "manual",
-    note,
-    tokensTotal: tokens,
-    tokensRemaining: tokens,
-    purchasedAt: now,
-    expiresAt: expiryFrom(now),
+  await db.transaction(async (tx) => {
+    await tx.insert(tokenBatches).values({
+      userId,
+      source: "manual",
+      note,
+      tokensTotal: tokens,
+      tokensRemaining: tokens,
+      purchasedAt: now,
+      expiresAt: expiryFrom(now),
+    });
+    await tx.insert(auditLog).values(
+      audit(actor, { userId, action: "grant", tokensDelta: tokens, description: `${tokens} tokens added: ${note}` }),
+    );
   });
 }
 
@@ -71,7 +93,7 @@ export class DeliveryError extends Error {}
  * Records a delivery for a given IST day and deducts tokens from the batches
  * expiring soonest (that were valid on that day).
  */
-export async function markDelivery(userId: string, day: string, packets: number, markedBy: string) {
+export async function markDelivery(userId: string, day: string, packets: number, actor: Actor) {
   if (!Number.isInteger(packets) || packets < 1) throw new DeliveryError("Invalid packet count");
   const dayStart = istDayStart(day);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
@@ -98,7 +120,7 @@ export async function markDelivery(userId: string, day: string, packets: number,
 
     const [delivery] = await tx
       .insert(deliveries)
-      .values({ userId, deliveryDate: day, packets, markedBy })
+      .values({ userId, deliveryDate: day, packets, markedBy: actor.email })
       .onConflictDoNothing()
       .returning();
     if (!delivery) throw new DeliveryError("Delivery already marked for this day");
@@ -114,12 +136,22 @@ export async function markDelivery(userId: string, day: string, packets: number,
       await tx.insert(deliveryAllocations).values({ deliveryId: delivery.id, batchId: b.id, tokens: take });
       left -= take;
     }
+    await tx.insert(auditLog).values(
+      audit(actor, {
+        userId,
+        action: "delivery",
+        tokensDelta: -packets,
+        description: `Delivered ${packets} packet${packets > 1 ? "s" : ""} (0.5 L) for ${formatDate(day)}`,
+      }),
+    );
   });
 }
 
 /** Reverses a delivery, returning tokens to the batches they came from. */
-export async function undoDelivery(deliveryId: string) {
+export async function undoDelivery(deliveryId: string, actor: Actor) {
   await db.transaction(async (tx) => {
+    const [delivery] = await tx.select().from(deliveries).where(eq(deliveries.id, deliveryId)).for("update");
+    if (!delivery) return;
     const allocations = await tx
       .select()
       .from(deliveryAllocations)
@@ -131,5 +163,13 @@ export async function undoDelivery(deliveryId: string) {
         .where(eq(tokenBatches.id, a.batchId));
     }
     await tx.delete(deliveries).where(eq(deliveries.id, deliveryId));
+    await tx.insert(auditLog).values(
+      audit(actor, {
+        userId: delivery.userId,
+        action: "delivery_undo",
+        tokensDelta: delivery.packets,
+        description: `Delivery for ${formatDate(delivery.deliveryDate)} cancelled, ${delivery.packets} token${delivery.packets > 1 ? "s" : ""} returned`,
+      }),
+    );
   });
 }

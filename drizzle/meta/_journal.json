@@ -15,6 +15,13 @@
       "when": 1791055936405,
       "tag": "0001_plan_test_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791058083799,
+      "tag": "0002_staff_and_audit",
+      "breakpoints": true
     }
   ]
 }

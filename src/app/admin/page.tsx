@@ -117,6 +117,7 @@ export default async function DailyDeliveries({ searchParams }: PageProps<"/admi
                 <form action={undoDeliveryAction} className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-medium text-brand-700">
                     ✓ Delivered {delivery.packets} packet{delivery.packets > 1 ? "s" : ""}
+                    <span className="block text-xs font-normal text-gray-500">by {delivery.markedBy}</span>
                   </span>
                   <input type="hidden" name="deliveryId" value={delivery.id} />
                   <input type="hidden" name="returnTo" value={returnTo} />

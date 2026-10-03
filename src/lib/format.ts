@@ -31,3 +31,13 @@ export function istDayStart(day: string) {
 export function daysUntil(d: Date) {
   return Math.ceil((d.getTime() - Date.now()) / 86_400_000);
 }
+
+export function formatDateTime(d: Date | string) {
+  return new Date(d).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: TZ,
+  });
+}

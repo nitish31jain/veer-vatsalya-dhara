@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { getActiveStaff } from "@/lib/session";
 import { BRAND_NAME } from "@/lib/brand";
 import { TOKEN_VALIDITY_DAYS } from "@/lib/format";
 
 export default async function Home() {
   const session = await auth();
-  if (session?.user?.id) redirect("/dashboard");
+  if (session?.user?.id) {
+    // Delivery staff go straight to their delivery list.
+    if (!session.user.isAdmin && (await getActiveStaff(session.user.email))) redirect("/deliver");
+    redirect("/dashboard");
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
@@ -26,7 +31,7 @@ export default async function Home() {
         className="mt-8"
         action={async () => {
           "use server";
-          await signIn("google", { redirectTo: "/dashboard" });
+          await signIn("google", { redirectTo: "/" });
         }}
       >
         <button className="btn-secondary w-full text-base">

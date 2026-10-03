@@ -10,6 +10,16 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
+// Delivery staff, authorised by an admin. Matched to a Google account by email.
+export const staff = pgTable("staff", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(true),
+  addedBy: text("added_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
@@ -18,6 +28,8 @@ export const users = pgTable("users", {
   // 10-digit Indian mobile number, without +91
   whatsapp: text("whatsapp"),
   address: text("address"),
+  // Delivery person responsible for this house
+  assignedStaffId: uuid("assigned_staff_id").references(() => staff.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -94,5 +106,25 @@ export const deliveryAllocations = pgTable("delivery_allocations", {
   tokens: integer("tokens").notNull(),
 });
 
+// Every token change on a customer's account, shown on their page.
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    // purchase | grant | delivery | delivery_undo
+    action: text("action").notNull(),
+    tokensDelta: integer("tokens_delta").notNull(),
+    description: text("description").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    actorName: text("actor_name").notNull(),
+    // customer | admin | delivery | system
+    actorRole: text("actor_role").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_user_idx").on(t.userId, t.createdAt)],
+);
+
+export type Staff = typeof staff.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
