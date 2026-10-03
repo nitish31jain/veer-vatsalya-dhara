@@ -1,0 +1,34 @@
+/* eslint-disable @next/next/no-img-element */
+import { requireUser } from "@/lib/session";
+import { ProfileForm } from "@/components/ProfileForm";
+
+export default async function ProfilePage({ searchParams }: PageProps<"/profile">) {
+  const { user } = await requireUser({ allowIncompleteProfile: true });
+  const { setup } = await searchParams;
+
+  return (
+    <>
+      {setup && !user.whatsapp && (
+        <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
+          Welcome! Please add your WhatsApp number so we can reach you about deliveries.
+        </div>
+      )}
+      <section className="card flex items-center gap-4">
+        {user.image ? (
+          <img src={user.image} alt="" className="size-14 rounded-full" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="grid size-14 place-items-center rounded-full bg-brand-100 text-xl">
+            {user.name[0]}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-semibold">{user.name}</p>
+          <p className="truncate text-sm text-gray-500">{user.email}</p>
+        </div>
+      </section>
+      <section className="card">
+        <ProfileForm whatsapp={user.whatsapp} address={user.address} />
+      </section>
+    </>
+  );
+}
