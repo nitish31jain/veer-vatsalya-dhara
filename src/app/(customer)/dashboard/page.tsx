@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/tokens";
 import { daysUntil, formatDate, rupees, TOKEN_VALIDITY_DAYS } from "@/lib/format";
 import { BuyButton } from "@/components/BuyButton";
+import { effectivePricePaise, purchasablePlans } from "@/lib/plans";
 
 export default async function Dashboard() {
   const { user } = await requireUser();
@@ -12,7 +13,7 @@ export default async function Dashboard() {
 
   const [{ balance, nextExpiry }, plans, batches, recentDeliveries, recentOrders] = await Promise.all([
     getBalance(user.id),
-    db.select().from(schema.plans).where(eq(schema.plans.active, true)).orderBy(asc(schema.plans.sortOrder)),
+    purchasablePlans(),
     db
       .select()
       .from(schema.tokenBatches)
@@ -67,13 +68,13 @@ export default async function Dashboard() {
                 <div>
                   <div className="flex items-baseline justify-between">
                     <h3 className="text-lg font-semibold">{p.name}</h3>
-                    <span className="text-lg font-bold text-brand-700">{rupees(p.pricePaise)}</span>
+                    <span className="text-lg font-bold text-brand-700">{rupees(effectivePricePaise(p))}</span>
                   </div>
                   <p className="text-sm text-gray-600">
                     {p.description || `${p.tokens} packets of 0.5 L`}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
-                    {p.tokens} tokens · {rupees(Math.round(p.pricePaise / p.tokens))}/packet · valid{" "}
+                    {p.tokens} tokens · {rupees(Math.round(effectivePricePaise(p) / p.tokens))}/packet · valid{" "}
                     {TOKEN_VALIDITY_DAYS} days
                   </p>
                 </div>

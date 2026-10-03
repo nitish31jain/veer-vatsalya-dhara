@@ -1,0 +1,1 @@
+ALTER TABLE "plans" ADD COLUMN "test_only" boolean DEFAULT false NOT NULL;

@@ -5,6 +5,7 @@ import type { Plan } from "@/db/schema";
 import { savePlanAction } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { isTestMode } from "@/lib/plans";
 
 export default async function Plans({ searchParams }: PageProps<"/admin/plans">) {
   await requireAdmin();
@@ -13,8 +14,15 @@ export default async function Plans({ searchParams }: PageProps<"/admin/plans">)
   return (
     <>
       <ErrorBanner error={sp.error} />
+      {isTestMode() && (
+        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <b>Test mode is on:</b> customers are charged ₹1 per packet and “Test only” plans are shown. Turn off by
+          removing <code>TEST_MODE</code> from the environment.
+        </div>
+      )}
       <p className="text-sm text-gray-600">
-        Price changes apply to new purchases only. Untick “Active” to hide a plan from customers.
+        Price changes apply to new purchases only. Untick “Active” to hide a plan from customers. “Test only” plans
+        are hidden unless test mode is on.
       </p>
       {plans.map((p) => (
         <PlanForm key={p.id} plan={p} />
@@ -54,13 +62,18 @@ function PlanForm({ plan }: { plan?: Plan }) {
           className="input"
         />
       </div>
-      <div>
+      <div className="col-span-2">
         <label className="label">Sort order</label>
         <input name="sortOrder" type="number" defaultValue={plan?.sortOrder ?? 0} className="input" />
       </div>
-      <label className="flex items-center gap-2 self-end pb-3 text-sm">
-        <input name="active" type="checkbox" defaultChecked={plan?.active ?? true} className="size-5" /> Active
-      </label>
+      <div className="col-span-2 flex gap-6 text-sm">
+        <label className="flex items-center gap-2">
+          <input name="active" type="checkbox" defaultChecked={plan?.active ?? true} className="size-5" /> Active
+        </label>
+        <label className="flex items-center gap-2">
+          <input name="testOnly" type="checkbox" defaultChecked={plan?.testOnly ?? false} className="size-5" /> Test only
+        </label>
+      </div>
       <SubmitButton className="btn-primary col-span-2">{plan ? "Save" : "Add plan"}</SubmitButton>
     </form>
   );

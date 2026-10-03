@@ -8,6 +8,7 @@ import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { createCashfreeOrder } from "@/lib/cashfree";
+import { effectivePricePaise, isPlanPurchasable } from "@/lib/plans";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -27,8 +28,9 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
 export async function startPurchase(planId: string): Promise<{ paymentSessionId?: string; error?: string }> {
   const { user } = await requireUser();
   const [plan] = await db.select().from(schema.plans).where(eq(schema.plans.id, planId));
-  if (!plan || !plan.active) return { error: "This plan is no longer available" };
+  if (!plan || !isPlanPurchasable(plan)) return { error: "This plan is no longer available" };
 
+  const amountPaise = effectivePricePaise(plan);
   const orderId = `MILK_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
   await db.insert(schema.orders).values({
     id: orderId,
@@ -36,13 +38,13 @@ export async function startPurchase(planId: string): Promise<{ paymentSessionId?
     planId: plan.id,
     planName: plan.name,
     tokens: plan.tokens,
-    amountPaise: plan.pricePaise,
+    amountPaise,
   });
 
   try {
     const paymentSessionId = await createCashfreeOrder({
       orderId,
-      amountPaise: plan.pricePaise,
+      amountPaise,
       customer: { id: user.id, name: user.name, email: user.email, phone: user.whatsapp! },
       note: `${plan.name} - ${plan.tokens} tokens`,
     });

@@ -82,12 +82,13 @@ export async function savePlanAction(formData: FormData) {
   const pricePaise = Math.round(Number(formData.get("priceRupees")) * 100);
   const sortOrder = Number(formData.get("sortOrder") ?? 0) || 0;
   const active = formData.get("active") === "on";
+  const testOnly = formData.get("testOnly") === "on";
 
   if (!name || !Number.isInteger(tokens) || tokens < 1 || !(pricePaise >= 100)) {
     backTo(formData, "Plan needs a name, at least 1 token and a price of at least ₹1");
   }
 
-  const values = { name, description, tokens, pricePaise, sortOrder, active };
+  const values = { name, description, tokens, pricePaise, sortOrder, active, testOnly };
   if (id) await db.update(schema.plans).set(values).where(eq(schema.plans.id, id));
   else await db.insert(schema.plans).values(values);
   revalidatePath("/", "layout");

@@ -28,6 +28,8 @@ export const plans = pgTable("plans", {
   tokens: integer("tokens").notNull(),
   pricePaise: integer("price_paise").notNull(),
   active: boolean("active").notNull().default(true),
+  // Only offered while TEST_MODE is on
+  testOnly: boolean("test_only").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

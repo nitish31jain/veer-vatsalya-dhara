@@ -9,8 +9,9 @@ async function main() {
     return;
   }
   await db.insert(schema.plans).values([
-    { name: "Weekly", description: "7 packets (0.5 L each)", tokens: 7, pricePaise: 7 * 4000, sortOrder: 1 },
-    { name: "Monthly", description: "30 packets (0.5 L each)", tokens: 30, pricePaise: 30 * 4000, sortOrder: 2 },
+    { name: "Daily", description: "1 packet (0.5 L)", tokens: 1, pricePaise: 6000, sortOrder: 0, testOnly: true },
+    { name: "Weekly", description: "7 packets (0.5 L each)", tokens: 7, pricePaise: 7 * 6000, sortOrder: 1 },
+    { name: "Monthly", description: "30 packets (0.5 L each)", tokens: 30, pricePaise: 30 * 6000, sortOrder: 2 },
   ]);
   console.log("Seeded plans.");
 }
