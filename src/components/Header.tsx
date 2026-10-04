@@ -5,11 +5,7 @@ import { getT } from "@/i18n/server";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { NavTabs } from "./NavTabs";
 
-export async function Header({
-  links,
-}: {
-  links: { href: string; label: string }[];
-}) {
+export async function Header({ links }: { links: { href: string; label: string }[] }) {
   const session = await auth();
   const { t } = await getT();
   const email = session?.user?.email;
@@ -22,12 +18,8 @@ export async function Header({
           <Link href="/dashboard" className="font-semibold text-brand-700">
             🐄 {BRAND_NAME}
           </Link>
-          {name && (
-            <p className="truncate text-sm text-gray-700">
-              {t.common.hi(name)}
-              <span className="text-xs text-gray-500"> · {email}</span>
-            </p>
-          )}
+          {name && <p className="truncate text-sm font-medium text-gray-800">{t.common.hi(name)}</p>}
+          {email && <p className="truncate text-xs text-gray-500">{email}</p>}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <LanguageSwitch />

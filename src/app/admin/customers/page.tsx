@@ -3,6 +3,7 @@ import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { activeBalances } from "@/lib/admin-queries";
+import { ownerEmails } from "@/lib/access";
 import { getT } from "@/i18n/server";
 
 export default async function Customers({ searchParams }: PageProps<"/admin/customers">) {
@@ -14,12 +15,12 @@ export default async function Customers({ searchParams }: PageProps<"/admin/cust
     db.select().from(schema.users).orderBy(asc(schema.users.name)),
     activeBalances(),
   ]);
+  const owners = ownerEmails();
   const rows = users.filter(
     (u) =>
-      !q ||
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      (u.whatsapp ?? "").includes(q),
+      // Owners (ADMIN_EMAILS) run the business and aren't customers.
+      !owners.includes(u.email.toLowerCase()) &&
+      (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.whatsapp ?? "").includes(q)),
   );
 
   return (
@@ -32,7 +33,10 @@ export default async function Customers({ searchParams }: PageProps<"/admin/cust
       <ul className="card divide-y p-0">
         {rows.map((u) => (
           <li key={u.id}>
-            <Link href={`/admin/customers/${u.id}`} className="flex items-center justify-between gap-3 p-4 hover:bg-gray-50">
+            <Link
+              href={`/admin/customers/${u.id}`}
+              className="flex items-center justify-between gap-3 p-4 hover:bg-gray-50"
+            >
               <span className="min-w-0">
                 <span className="block truncate font-medium">{u.name}</span>
                 <span className="block truncate text-xs text-gray-500">
