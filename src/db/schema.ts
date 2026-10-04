@@ -10,11 +10,14 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-// Delivery staff, authorised by an admin. Matched to a Google account by email.
+// Team members (delivery staff and admins) authorised in the admin console.
+// Matched to a Google account by email. Owners from ADMIN_EMAILS are not stored here.
 export const staff = pgTable("staff", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
+  // "delivery" | "admin" (admins can also deliver)
+  role: text("role").notNull().default("delivery"),
   active: boolean("active").notNull().default(true),
   addedBy: text("added_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -28,8 +31,6 @@ export const users = pgTable("users", {
   // 10-digit Indian mobile number, without +91
   whatsapp: text("whatsapp"),
   address: text("address"),
-  // Delivery person responsible for this house
-  assignedStaffId: uuid("assigned_staff_id").references(() => staff.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -40,7 +41,7 @@ export const plans = pgTable("plans", {
   tokens: integer("tokens").notNull(),
   pricePaise: integer("price_paise").notNull(),
   active: boolean("active").notNull().default(true),
-  // Only offered while TEST_MODE is on
+  // Only offered to admins while test mode is on (Admin → Plans)
   testOnly: boolean("test_only").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -124,6 +125,14 @@ export const auditLog = pgTable(
   },
   (t) => [index("audit_user_idx").on(t.userId, t.createdAt)],
 );
+
+// App-wide switches editable from the admin console, e.g. test_mode.
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export type Staff = typeof staff.$inferSelect;
 export type User = typeof users.$inferSelect;

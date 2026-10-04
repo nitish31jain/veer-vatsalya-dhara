@@ -3,7 +3,7 @@ import { db, schema } from "@/db";
 import { requireStaff } from "@/lib/session";
 import { activeBalances } from "@/lib/admin-queries";
 import { formatDate, todayIST } from "@/lib/format";
-import { staffMarkDeliveryAction, staffUndoDeliveryAction } from "./actions";
+import { adminUndoTodayAction, staffMarkDeliveryAction } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
 
@@ -14,21 +14,15 @@ export default async function DeliverPage({ searchParams }: PageProps<"/deliver"
   const today = todayIST();
 
   const [houses, balances, todays] = await Promise.all([
-    staff.isAdmin
-      ? db.select().from(schema.users).orderBy(asc(schema.users.name))
-      : db
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.assignedStaffId, staff.staffId!))
-          .orderBy(asc(schema.users.name)),
+    db.select().from(schema.users).orderBy(asc(schema.users.name)),
     activeBalances(),
     db.select().from(schema.deliveries).where(eq(schema.deliveries.deliveryDate, today)),
   ]);
   const deliveredBy = new Map(todays.map((d) => [d.userId, d]));
 
   const rows = houses
-    // Admins see every house with tokens; delivery staff see all their assigned houses.
-    .filter((h) => !staff.isAdmin || (balances.get(h.id) ?? 0) > 0 || deliveredBy.has(h.id))
+    // Every customer with active tokens is on the list automatically.
+    .filter((h) => (balances.get(h.id) ?? 0) > 0 || deliveredBy.has(h.id))
     .filter(
       (h) =>
         !q ||
@@ -57,15 +51,16 @@ export default async function DeliverPage({ searchParams }: PageProps<"/deliver"
         </form>
       </section>
 
-      {houses.length === 0 && !staff.isAdmin && (
-        <p className="card text-sm text-gray-600">No houses are assigned to you yet. Please ask the admin.</p>
+      {rows.length === 0 && (
+        <p className="card text-sm text-gray-600">
+          {q ? "No houses match your search." : "No customers with tokens right now."}
+        </p>
       )}
 
       <ul className="space-y-2">
         {rows.map((h) => {
           const delivery = deliveredBy.get(h.id);
           const balance = balances.get(h.id) ?? 0;
-          const canUndo = delivery && (staff.isAdmin || delivery.markedBy === staff.actor.email);
           return (
             <li key={h.id} className={`card ${delivery ? "bg-brand-50" : ""}`}>
               <div className="flex items-start justify-between gap-3">
@@ -88,9 +83,12 @@ export default async function DeliverPage({ searchParams }: PageProps<"/deliver"
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-brand-700">
                     ✓ Delivered {delivery.packets} packet{delivery.packets > 1 ? "s" : ""}
+                    {staff.isAdmin && (
+                      <span className="block text-xs font-normal text-gray-500">by {delivery.markedBy}</span>
+                    )}
                   </span>
-                  {canUndo && (
-                    <form action={staffUndoDeliveryAction}>
+                  {staff.isAdmin && (
+                    <form action={adminUndoTodayAction}>
                       <input type="hidden" name="deliveryId" value={delivery.id} />
                       <input type="hidden" name="q" value={q} />
                       <SubmitButton className="btn-secondary min-h-9 text-sm" pendingText="Undoing…">

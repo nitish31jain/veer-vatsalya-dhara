@@ -1,51 +1,47 @@
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
 import { auth, getUserById } from "@/auth";
-import { db, schema } from "@/db";
+import { getAccess } from "./access";
 import type { Actor } from "./tokens";
 
-/** For customer pages: signed in, user row exists, and WhatsApp number is set. */
-export async function requireUser({ allowIncompleteProfile = false } = {}) {
+async function requireSession() {
   const session = await auth();
   if (!session?.user?.id) redirect("/");
+  const access = await getAccess(session.user.email);
+  return { session, access };
+}
+
+/**
+ * For customer pages: signed in, user row exists, and WhatsApp number is set.
+ * Delivery staff (non-admins) only get the delivery screen.
+ */
+export async function requireUser({ allowIncompleteProfile = false } = {}) {
+  const { session, access } = await requireSession();
+  if (access.isDelivery && !access.isAdmin) redirect("/deliver");
   const user = await getUserById(session.user.id);
   if (!user) redirect("/");
   if (!allowIncompleteProfile && !user.whatsapp) redirect("/profile?setup=1");
-  return { user, isAdmin: session.user.isAdmin };
+  return { user, access };
 }
 
 export async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/");
-  if (!session.user.isAdmin) redirect("/dashboard");
+  const { session, access } = await requireSession();
+  if (!access.isAdmin) redirect("/");
   const actor: Actor = {
-    email: session.user.email ?? "admin",
-    name: session.user.name ?? "Admin",
+    email: session.user.email!.toLowerCase(),
+    name: access.name ?? session.user.name ?? "Admin",
     role: "admin",
   };
-  return { ...session.user, actor };
+  return { access, actor };
 }
 
-/** Active delivery-staff record for an email, if any. Checked on every request so removal is immediate. */
-export async function getActiveStaff(email: string | null | undefined) {
-  if (!email) return undefined;
-  const [member] = await db
-    .select()
-    .from(schema.staff)
-    .where(and(eq(schema.staff.email, email.toLowerCase()), eq(schema.staff.active, true)));
-  return member;
-}
-
-/** For delivery pages: an active delivery person, or an admin (who can deliver to every house). */
+/** For the delivery screen: delivery staff and all admins. */
 export async function requireStaff() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/");
-  if (session.user.isAdmin) {
-    const actor: Actor = { email: session.user.email ?? "admin", name: session.user.name ?? "Admin", role: "admin" };
-    return { staffId: null, isAdmin: true, actor };
-  }
-  const member = await getActiveStaff(session.user.email);
-  if (!member) redirect("/dashboard");
-  const actor: Actor = { email: member.email, name: member.name, role: "delivery" };
-  return { staffId: member.id, isAdmin: false, actor };
+  const { session, access } = await requireSession();
+  if (!access.isDelivery) redirect("/");
+  const actor: Actor = {
+    email: session.user.email!.toLowerCase(),
+    name: access.name ?? session.user.name ?? "Staff",
+    role: access.isAdmin ? "admin" : "delivery",
+  };
+  return { isAdmin: access.isAdmin, actor };
 }

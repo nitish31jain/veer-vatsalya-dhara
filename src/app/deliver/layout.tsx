@@ -6,10 +6,15 @@ export default async function DeliverLayout({ children }: LayoutProps<"/deliver"
   return (
     <>
       <Header
-        links={[
-          { href: "/deliver", label: "Today's deliveries" },
-          ...(staff.isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
-        ]}
+        links={
+          staff.isAdmin
+            ? [
+                { href: "/dashboard", label: "Home" },
+                { href: "/deliver", label: "Today's deliveries" },
+                { href: "/admin", label: "Admin" },
+              ]
+            : [{ href: "/deliver", label: "Today's deliveries" }]
+        }
       />
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">{children}</main>
     </>

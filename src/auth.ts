@@ -3,15 +3,6 @@ import Google from "next-auth/providers/google";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 
-export function isAdminEmail(email: string | null | undefined) {
-  if (!email) return false;
-  const admins = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(email.toLowerCase());
-}
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
   session: { strategy: "jwt" },
@@ -33,13 +24,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           })
           .returning({ id: schema.users.id });
         token.userId = user.id;
-        token.isAdmin = isAdminEmail(email);
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.userId as string;
-      session.user.isAdmin = Boolean(token.isAdmin);
       return session;
     },
   },
@@ -47,7 +36,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 declare module "next-auth" {
   interface Session {
-    user: { id: string; isAdmin: boolean; name?: string | null; email?: string | null; image?: string | null };
+    user: { id: string; name?: string | null; email?: string | null; image?: string | null };
   }
 }
 

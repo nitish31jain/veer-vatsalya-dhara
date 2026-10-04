@@ -2,27 +2,42 @@ import { requireAdmin } from "@/lib/session";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Plan } from "@/db/schema";
-import { savePlanAction } from "../actions";
+import { savePlanAction, setTestModeAction } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { isTestMode } from "@/lib/plans";
+import { isTestModeOn } from "@/lib/settings";
 
 export default async function Plans({ searchParams }: PageProps<"/admin/plans">) {
   await requireAdmin();
   const sp = await searchParams;
-  const plans = await db.select().from(schema.plans).orderBy(asc(schema.plans.sortOrder));
+  const [plans, testMode] = await Promise.all([
+    db.select().from(schema.plans).orderBy(asc(schema.plans.sortOrder)),
+    isTestModeOn(),
+  ]);
   return (
     <>
       <ErrorBanner error={sp.error} />
-      {isTestMode() && (
-        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
-          <b>Test mode is on:</b> customers are charged ₹1 per packet and “Test only” plans are shown. Turn off by
-          removing <code>TEST_MODE</code> from the environment.
+      <section className={`card ${testMode ? "ring-2 ring-amber-400" : ""}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Test mode: {testMode ? "ON" : "OFF"}</h2>
+            <p className="mt-1 text-xs text-gray-600">
+              When on, <b>admins</b> pay ₹1 per packet on every plan (and see “Test only” plans), so you can test
+              real payments cheaply. Customers always pay the normal price.
+            </p>
+          </div>
+          <form action={setTestModeAction}>
+            <input type="hidden" name="on" value={String(!testMode)} />
+            <input type="hidden" name="returnTo" value="/admin/plans" />
+            <SubmitButton className={testMode ? "btn-secondary" : "btn-primary"}>
+              {testMode ? "Turn off" : "Turn on"}
+            </SubmitButton>
+          </form>
         </div>
-      )}
+      </section>
       <p className="text-sm text-gray-600">
         Price changes apply to new purchases only. Untick “Active” to hide a plan from customers. “Test only” plans
-        are hidden unless test mode is on.
+        are shown only to admins while test mode is on.
       </p>
       {plans.map((p) => (
         <PlanForm key={p.id} plan={p} />

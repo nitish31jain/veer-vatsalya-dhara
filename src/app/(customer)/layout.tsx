@@ -1,24 +1,27 @@
 import { auth } from "@/auth";
 import { Header } from "@/components/Header";
-import { isTestMode } from "@/lib/plans";
-import { getActiveStaff } from "@/lib/session";
+import { getAccess } from "@/lib/access";
+import { isTestModeOn } from "@/lib/settings";
 
 export default async function CustomerLayout({ children }: LayoutProps<"/">) {
   const session = await auth();
+  const access = await getAccess(session?.user?.email);
   const links = [
-    { href: "/dashboard", label: "My Tokens" },
+    { href: "/dashboard", label: "Home" },
     { href: "/profile", label: "Profile" },
-    ...(session?.user?.isAdmin || (await getActiveStaff(session?.user?.email))
-      ? [{ href: "/deliver", label: "Deliveries" }]
+    ...(access.isAdmin
+      ? [
+          { href: "/deliver", label: "Deliveries" },
+          { href: "/admin", label: "Admin" },
+        ]
       : []),
-    ...(session?.user?.isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
   return (
     <>
       <Header links={links} />
-      {isTestMode() && (
+      {access.isAdmin && (await isTestModeOn()) && (
         <div className="bg-amber-100 px-4 py-1.5 text-center text-xs text-amber-900">
-          Test mode: all packs are charged at ₹1 per packet
+          Test mode is on: you (as admin) are charged ₹1 per packet. Customers pay normal prices.
         </div>
       )}
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">{children}</main>

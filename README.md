@@ -47,21 +47,26 @@ Run `npm run db:migrate` against the production `DATABASE_URL` whenever the sche
 | `/payment/return` | customer | Confirms payment after Cashfree checkout |
 | `/admin` | admin | Daily delivery sheet: mark / undo, “mark all”, date navigation, search |
 | `/admin/customers` | admin | Customer list with balances, detail page, manual token grant |
-| `/admin/staff` | admin | Authorise delivery staff by Google email, assign houses, remove access |
-| `/admin/plans` | admin | Create/edit plans and prices |
-| `/deliver` | delivery staff | Today's assigned houses: mark delivered, undo own marks |
+| `/admin/team` | admin | Add/remove admins and delivery staff by Google email |
+| `/admin/plans` | admin | Create/edit plans and prices, turn test mode on/off |
+| `/deliver` | delivery staff + admins | Today's list of every customer with tokens: mark delivered |
 
-## Delivery staff
-Admins add a delivery person (name + Google email) under **Delivery staff**, then tick the
-houses they deliver to. When that person signs in with Google they land on `/deliver`, which
-lists only their houses for today. Marking a delivery deducts tokens from that house.
-They cannot back-date deliveries, mark houses that aren't theirs, or undo other people's marks.
-Removing access takes effect immediately.
+## Team: admins and delivery staff
+Owners are listed in `ADMIN_EMAILS` (Vercel env) and are always admins. Everyone else is
+managed in the app under **Admin → Team** by Google email, with a role:
+
+- **Delivery staff** only ever see `/deliver`: today's list of every customer who has
+  active tokens, with address and phone. They can mark deliveries but not undo them,
+  back-date them, or open any other page.
+- **Admins** get the full admin console and can also use `/deliver`. They can undo
+  deliveries and mark any date from **Daily deliveries** (e.g. when staff are absent).
+
+Role changes and removals take effect on the person's next page load.
 
 Every token change (purchase, manual grant, delivery, undo) is written to an audit log with
 who did it and when, shown as **Token activity** on the customer's page and in admin.
 
 ## Test mode
-Set `TEST_MODE=true` to charge ₹1 per packet on every plan and show “Test only” plans.
-Remove it (or set it to anything else) for real plan prices; test-only plans are then
-hidden.
+**Admin → Plans & test mode** has an on/off switch. While on, admins (only) are charged
+₹1 per packet on every plan and can see plans marked “Test only”. Customers always pay
+the normal price, so it is safe to leave on briefly in production.

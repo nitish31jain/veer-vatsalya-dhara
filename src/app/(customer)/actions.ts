@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/session";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { createCashfreeOrder } from "@/lib/cashfree";
 import { effectivePricePaise, isPlanPurchasable } from "@/lib/plans";
+import { isTestModeOn } from "@/lib/settings";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -26,11 +27,13 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
 }
 
 export async function startPurchase(planId: string): Promise<{ paymentSessionId?: string; error?: string }> {
-  const { user } = await requireUser();
+  const { user, access } = await requireUser();
+  // ₹1 test pricing only for admins, and only while test mode is on.
+  const testPricing = access.isAdmin && (await isTestModeOn());
   const [plan] = await db.select().from(schema.plans).where(eq(schema.plans.id, planId));
-  if (!plan || !isPlanPurchasable(plan)) return { error: "This plan is no longer available" };
+  if (!plan || !isPlanPurchasable(plan, testPricing)) return { error: "This plan is no longer available" };
 
-  const amountPaise = effectivePricePaise(plan);
+  const amountPaise = effectivePricePaise(plan, testPricing);
   const orderId = `MILK_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
   await db.insert(schema.orders).values({
     id: orderId,

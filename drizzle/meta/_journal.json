@@ -22,6 +22,20 @@
       "when": 1791058083799,
       "tag": "0002_staff_and_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791090666326,
+      "tag": "0003_team_roles_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791090675076,
+      "tag": "0004_drop_house_assignment",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,15 @@
 "use server";
 
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import { requireAdmin } from "@/lib/session";
 import { DeliveryError, grantTokens, markDelivery, undoDelivery } from "@/lib/tokens";
+import { ownerEmails } from "@/lib/access";
+import { setTestMode } from "@/lib/settings";
 
-function backTo(formData: FormData, error?: string) {
+function backTo(formData: FormData, error?: string): never {
   const url = new URL(String(formData.get("returnTo") || "/admin"), "http://x");
   if (error) url.searchParams.set("error", error);
   else url.searchParams.delete("error");
@@ -95,58 +97,41 @@ export async function savePlanAction(formData: FormData) {
   backTo(formData);
 }
 
-export async function addStaffAction(formData: FormData) {
+export async function addTeamMemberAction(formData: FormData) {
   const admin = await requireAdmin();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
+  const role = formData.get("role") === "admin" ? "admin" : "delivery";
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !name) {
-    backTo(formData, "Enter the delivery person's name and Google email address");
+    backTo(formData, "Enter a name and a Google email address");
   }
+  if (ownerEmails().includes(email)) backTo(formData, "That email is already an owner");
   await db
     .insert(schema.staff)
-    .values({ email, name, addedBy: admin.actor.email })
-    .onConflictDoUpdate({ target: schema.staff.email, set: { name, active: true } });
-  revalidatePath("/admin/staff");
+    .values({ email, name, role, addedBy: admin.actor.email })
+    .onConflictDoUpdate({ target: schema.staff.email, set: { name, role, active: true } });
+  revalidatePath("/", "layout");
   backTo(formData);
 }
 
-export async function setStaffActiveAction(formData: FormData) {
-  await requireAdmin();
+export async function updateTeamMemberAction(formData: FormData) {
+  const admin = await requireAdmin();
   const id = String(formData.get("staffId"));
-  const active = formData.get("active") === "true";
-  await db.update(schema.staff).set({ active }).where(eq(schema.staff.id, id));
-  revalidatePath("/admin/staff");
+  const [member] = await db.select().from(schema.staff).where(eq(schema.staff.id, id));
+  if (!member) backTo(formData);
+  if (member.email === admin.actor.email) backTo(formData, "You can't change your own access");
+
+  const change: Partial<typeof schema.staff.$inferInsert> = {};
+  if (formData.has("active")) change.active = formData.get("active") === "true";
+  if (formData.has("role")) change.role = formData.get("role") === "admin" ? "admin" : "delivery";
+  await db.update(schema.staff).set(change).where(eq(schema.staff.id, id));
+  revalidatePath("/", "layout");
   backTo(formData);
 }
 
-/** Replaces the set of houses assigned to one delivery person. */
-export async function saveStaffHousesAction(formData: FormData) {
-  await requireAdmin();
-  const staffId = String(formData.get("staffId"));
-  const userIds = formData.getAll("userId").map(String);
-  await db.transaction(async (tx) => {
-    await tx
-      .update(schema.users)
-      .set({ assignedStaffId: null })
-      .where(
-        and(
-          eq(schema.users.assignedStaffId, staffId),
-          userIds.length ? notInArray(schema.users.id, userIds) : undefined,
-        ),
-      );
-    if (userIds.length) {
-      await tx.update(schema.users).set({ assignedStaffId: staffId }).where(inArray(schema.users.id, userIds));
-    }
-  });
-  revalidatePath("/admin", "layout");
-  backTo(formData);
-}
-
-export async function assignCustomerAction(formData: FormData) {
-  await requireAdmin();
-  const userId = String(formData.get("userId"));
-  const staffId = String(formData.get("staffId") ?? "") || null;
-  await db.update(schema.users).set({ assignedStaffId: staffId }).where(eq(schema.users.id, userId));
-  revalidatePath("/admin", "layout");
+export async function setTestModeAction(formData: FormData) {
+  const admin = await requireAdmin();
+  await setTestMode(formData.get("on") === "true", admin.actor.email);
+  revalidatePath("/", "layout");
   backTo(formData);
 }

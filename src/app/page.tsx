@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
-import { getActiveStaff } from "@/lib/session";
+import { getAccess } from "@/lib/access";
 import { BRAND_NAME } from "@/lib/brand";
 import { TOKEN_VALIDITY_DAYS } from "@/lib/format";
 
@@ -8,7 +8,8 @@ export default async function Home() {
   const session = await auth();
   if (session?.user?.id) {
     // Delivery staff go straight to their delivery list.
-    if (!session.user.isAdmin && (await getActiveStaff(session.user.email))) redirect("/deliver");
+    const access = await getAccess(session.user.email);
+    if (access.isDelivery && !access.isAdmin) redirect("/deliver");
     redirect("/dashboard");
   }
 
