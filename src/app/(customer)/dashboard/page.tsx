@@ -47,7 +47,7 @@ export default async function Dashboard() {
   return (
     <>
       <section className="rounded-2xl bg-brand-600 p-5 text-white shadow-sm">
-        <p className="text-sm opacity-90">Hi {user.name.split(" ")[0]}, your total milk tokens</p>
+        <p className="text-sm opacity-90">Your total milk tokens</p>
         <p className="mt-1 text-5xl font-bold">{balance}</p>
         <p className="text-sm opacity-90">
           = {balance * 0.5} litres ({balance} × 0.5 L packets)
