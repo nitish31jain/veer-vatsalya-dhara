@@ -4,7 +4,17 @@ import { useState } from "react";
 import { load } from "@cashfreepayments/cashfree-js";
 import { startPurchase } from "@/app/(customer)/actions";
 
-export function BuyButton({ planId, label }: { planId: string; label: string }) {
+export function BuyButton({
+  planId,
+  label,
+  openingText,
+  errorText,
+}: {
+  planId: string;
+  label: string;
+  openingText: string;
+  errorText: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +23,7 @@ export function BuyButton({ planId, label }: { planId: string; label: string }) 
     setError(null);
     const res = await startPurchase(planId);
     if (!res.paymentSessionId) {
-      setError(res.error ?? "Something went wrong");
+      setError(res.error ?? errorText);
       setBusy(false);
       return;
     }
@@ -27,7 +37,7 @@ export function BuyButton({ planId, label }: { planId: string; label: string }) 
   return (
     <div>
       <button onClick={buy} disabled={busy} className="btn-primary w-full">
-        {busy ? "Opening payment…" : label}
+        {busy ? openingText : label}
       </button>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>

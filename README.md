@@ -70,3 +70,10 @@ who did it and when, shown as **Token activity** on the customer's page and in a
 **Admin → Plans & test mode** has an on/off switch. While on, admins (only) are charged
 ₹1 per packet on every plan and can see plans marked “Test only”. Customers always pay
 the normal price, so it is safe to leave on briefly in production.
+
+## Languages
+The header (and sign-in page) has an **English | हिंदी** switch; the choice is remembered per
+device in a `lang` cookie. All text lives in `src/i18n/dictionaries.ts` — `hi` must define every
+key that `en` does (TypeScript enforces this). Plans have optional Hindi name/description
+fields in **Admin → Plans**. Token activity entries store structured `meta` so they display in
+either language.

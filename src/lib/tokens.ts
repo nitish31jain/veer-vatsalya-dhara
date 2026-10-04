@@ -1,5 +1,6 @@
 import { and, asc, eq, gt, lt, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
+import type { AuditMeta } from "@/db/schema";
 import { TOKEN_VALIDITY_DAYS, formatDate, istDayStart, rupees } from "./format";
 
 const { tokenBatches, orders, deliveries, deliveryAllocations, auditLog } = schema;
@@ -9,7 +10,10 @@ export type Actor = { email: string; name: string; role: "customer" | "admin" | 
 
 export const PAYMENT_ACTOR: Actor = { email: "cashfree", name: "Online payment", role: "system" };
 
-function audit(actor: Actor, entry: { userId: string; action: string; tokensDelta: number; description: string }) {
+function audit(
+  actor: Actor,
+  entry: { userId: string; action: string; tokensDelta: number; description: string; meta: AuditMeta },
+) {
   return { ...entry, actorEmail: actor.email, actorName: actor.name, actorRole: actor.role };
 }
 
@@ -48,6 +52,9 @@ export async function fulfillOrder(orderId: string) {
       .where(and(eq(orders.id, orderId), ne(orders.status, "PAID")))
       .returning();
     if (!order) return false;
+    const [plan] = order.planId
+      ? await tx.select().from(schema.plans).where(eq(schema.plans.id, order.planId))
+      : [];
     await tx.insert(tokenBatches).values({
       userId: order.userId,
       orderId: order.id,
@@ -63,6 +70,12 @@ export async function fulfillOrder(orderId: string) {
         action: "purchase",
         tokensDelta: order.tokens,
         description: `Bought ${order.planName}: ${order.tokens} tokens for ${rupees(order.amountPaise)}`,
+        meta: {
+          planName: order.planName,
+          planNameHi: plan?.nameHi ?? null,
+          tokens: order.tokens,
+          amountPaise: order.amountPaise,
+        },
       }),
     );
     return true;
@@ -82,19 +95,33 @@ export async function grantTokens(userId: string, tokens: number, note: string, 
       expiresAt: expiryFrom(now),
     });
     await tx.insert(auditLog).values(
-      audit(actor, { userId, action: "grant", tokensDelta: tokens, description: `${tokens} tokens added: ${note}` }),
+      audit(actor, {
+        userId,
+        action: "grant",
+        tokensDelta: tokens,
+        description: `${tokens} tokens added: ${note}`,
+        meta: { tokens, note },
+      }),
     );
   });
 }
 
-export class DeliveryError extends Error {}
+/** Delivery failures the user can fix; `code` is translated for display. */
+export class DeliveryError extends Error {
+  constructor(
+    public code: "invalid_packets" | "insufficient" | "already_marked",
+    public available = 0,
+  ) {
+    super(code);
+  }
+}
 
 /**
  * Records a delivery for a given IST day and deducts tokens from the batches
  * expiring soonest (that were valid on that day).
  */
 export async function markDelivery(userId: string, day: string, packets: number, actor: Actor) {
-  if (!Number.isInteger(packets) || packets < 1) throw new DeliveryError("Invalid packet count");
+  if (!Number.isInteger(packets) || packets < 1) throw new DeliveryError("invalid_packets");
   const dayStart = istDayStart(day);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
 
@@ -115,7 +142,7 @@ export async function markDelivery(userId: string, day: string, packets: number,
 
     const available = batches.reduce((s, b) => s + b.tokensRemaining, 0);
     if (available < packets) {
-      throw new DeliveryError(`Only ${available} token(s) available`);
+      throw new DeliveryError("insufficient", available);
     }
 
     const [delivery] = await tx
@@ -123,7 +150,7 @@ export async function markDelivery(userId: string, day: string, packets: number,
       .values({ userId, deliveryDate: day, packets, markedBy: actor.email })
       .onConflictDoNothing()
       .returning();
-    if (!delivery) throw new DeliveryError("Delivery already marked for this day");
+    if (!delivery) throw new DeliveryError("already_marked");
 
     let left = packets;
     for (const b of batches) {
@@ -142,6 +169,7 @@ export async function markDelivery(userId: string, day: string, packets: number,
         action: "delivery",
         tokensDelta: -packets,
         description: `Delivered ${packets} packet${packets > 1 ? "s" : ""} (0.5 L) for ${formatDate(day)}`,
+        meta: { packets, day },
       }),
     );
   });
@@ -169,6 +197,7 @@ export async function undoDelivery(deliveryId: string, actor: Actor) {
         action: "delivery_undo",
         tokensDelta: delivery.packets,
         description: `Delivery for ${formatDate(delivery.deliveryDate)} cancelled, ${delivery.packets} token${delivery.packets > 1 ? "s" : ""} returned`,
+        meta: { packets: delivery.packets, day: delivery.deliveryDate },
       }),
     );
   });

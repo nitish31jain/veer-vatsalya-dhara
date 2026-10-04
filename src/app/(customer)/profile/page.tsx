@@ -1,16 +1,18 @@
 /* eslint-disable @next/next/no-img-element */
 import { requireUser } from "@/lib/session";
 import { ProfileForm } from "@/components/ProfileForm";
+import { getT } from "@/i18n/server";
 
 export default async function ProfilePage({ searchParams }: PageProps<"/profile">) {
   const { user } = await requireUser({ allowIncompleteProfile: true });
   const { setup } = await searchParams;
+  const { t } = await getT();
 
   return (
     <>
       {setup && !user.whatsapp && (
         <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-          Welcome! Please add your WhatsApp number so we can reach you about deliveries.
+          {t.profile.welcomeSetup}
         </div>
       )}
       <section className="card flex items-center gap-4">
@@ -27,7 +29,17 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
         </div>
       </section>
       <section className="card">
-        <ProfileForm whatsapp={user.whatsapp} address={user.address} />
+        <ProfileForm
+          whatsapp={user.whatsapp}
+          address={user.address}
+          labels={{
+            whatsapp: t.profile.whatsapp,
+            address: t.profile.address,
+            addressPlaceholder: t.profile.addressPlaceholder,
+            save: t.common.save,
+            saved: t.common.saved,
+          }}
+        />
       </section>
     </>
   );

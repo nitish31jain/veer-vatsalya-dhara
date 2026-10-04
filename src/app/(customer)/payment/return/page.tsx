@@ -5,11 +5,14 @@ import { requireUser } from "@/lib/session";
 import { getCashfreeOrderStatus } from "@/lib/cashfree";
 import { fulfillOrder } from "@/lib/tokens";
 import { rupees } from "@/lib/format";
+import { getT, planText } from "@/i18n/server";
 
 export default async function PaymentReturn({ searchParams }: PageProps<"/payment/return">) {
   const { user } = await requireUser();
   const { order_id } = await searchParams;
   const orderId = typeof order_id === "string" ? order_id : "";
+  const { t, locale } = await getT();
+  const labels = { checkAgain: t.payment.checkAgain, goToTokens: t.payment.goToTokens };
 
   const [order] = await db
     .select()
@@ -17,7 +20,7 @@ export default async function PaymentReturn({ searchParams }: PageProps<"/paymen
     .where(and(eq(schema.orders.id, orderId), eq(schema.orders.userId, user.id)));
 
   if (!order) {
-    return <Result emoji="❓" title="Order not found" />;
+    return <Result emoji="❓" title={t.payment.notFound} labels={labels} />;
   }
 
   let status = order.status;
@@ -33,28 +36,46 @@ export default async function PaymentReturn({ searchParams }: PageProps<"/paymen
   }
 
   if (status === "PAID") {
+    const [plan] = order.planId
+      ? await db.select().from(schema.plans).where(eq(schema.plans.id, order.planId))
+      : [];
+    const planName = plan ? planText(plan, locale).name : order.planName;
     return (
       <Result
         emoji="✅"
-        title="Payment successful"
-        body={`${order.tokens} tokens (${order.planName}, ${rupees(order.amountPaise)}) have been added to your account.`}
+        title={t.payment.successTitle}
+        body={t.payment.successBody(order.tokens, planName, rupees(order.amountPaise))}
+        labels={labels}
       />
     );
   }
   if (status === "FAILED") {
-    return <Result emoji="❌" title="Payment failed" body="No money was taken for this order. Please try again." />;
+    return <Result emoji="❌" title={t.payment.failedTitle} body={t.payment.failedBody} labels={labels} />;
   }
   return (
     <Result
       emoji="⏳"
-      title="Payment not completed yet"
-      body="If you completed the payment, it can take a minute to confirm. Check again shortly, or try buying again if you cancelled."
+      title={t.payment.pendingTitle}
+      body={t.payment.pendingBody}
       retry={`/payment/return?order_id=${order.id}`}
+      labels={labels}
     />
   );
 }
 
-function Result({ emoji, title, body, retry }: { emoji: string; title: string; body?: string; retry?: string }) {
+function Result({
+  emoji,
+  title,
+  body,
+  retry,
+  labels,
+}: {
+  emoji: string;
+  title: string;
+  body?: string;
+  retry?: string;
+  labels: { checkAgain: string; goToTokens: string };
+}) {
   return (
     <section className="card space-y-3 py-8 text-center">
       <div className="text-5xl">{emoji}</div>
@@ -63,11 +84,11 @@ function Result({ emoji, title, body, retry }: { emoji: string; title: string; b
       <div className="flex flex-col gap-2 pt-2">
         {retry && (
           <Link href={retry} className="btn-secondary">
-            Check again
+            {labels.checkAgain}
           </Link>
         )}
         <Link href="/dashboard" className="btn-primary">
-          Go to my tokens
+          {labels.goToTokens}
         </Link>
       </div>
     </section>

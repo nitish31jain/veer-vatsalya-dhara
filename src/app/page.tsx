@@ -3,6 +3,8 @@ import { auth, signIn } from "@/auth";
 import { getAccess } from "@/lib/access";
 import { BRAND_NAME } from "@/lib/brand";
 import { TOKEN_VALIDITY_DAYS } from "@/lib/format";
+import { getT } from "@/i18n/server";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
 
 export default async function Home() {
   const session = await auth();
@@ -12,20 +14,24 @@ export default async function Home() {
     if (access.isDelivery && !access.isAdmin) redirect("/deliver");
     redirect("/dashboard");
   }
+  const { t } = await getT();
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
+      <div className="mb-6 flex justify-center">
+        <LanguageSwitch />
+      </div>
       <div className="text-center">
         <div className="text-6xl">🐄</div>
         <h1 className="mt-4 text-3xl font-bold text-brand-800">{BRAND_NAME}</h1>
-        <p className="mt-2 text-gray-600">Pure desi cow milk, delivered fresh to your door every day.</p>
+        <p className="mt-2 text-gray-600">{t.landing.tagline}</p>
       </div>
 
       <ul className="card mt-8 space-y-3 text-sm text-gray-700">
-        <li>🥛 1 token = one 0.5 litre milk packet</li>
-        <li>📅 Buy weekly or monthly token packs</li>
-        <li>🚚 A token is used each time milk is delivered</li>
-        <li>⏳ Tokens are valid for {TOKEN_VALIDITY_DAYS} days from purchase</li>
+        <li>🥛 {t.landing.point1}</li>
+        <li>📅 {t.landing.point2}</li>
+        <li>🚚 {t.landing.point3}</li>
+        <li>⏳ {t.landing.point4(TOKEN_VALIDITY_DAYS)}</li>
       </ul>
 
       <form
@@ -42,7 +48,7 @@ export default async function Home() {
             <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
             <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
           </svg>
-          Continue with Google
+          {t.landing.continueWithGoogle}
         </button>
       </form>
     </main>

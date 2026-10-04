@@ -8,6 +8,7 @@ import {
   uuid,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // Team members (delivery staff and admins) authorised in the admin console.
@@ -38,6 +39,9 @@ export const plans = pgTable("plans", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   description: text("description"),
+  // Optional Hindi versions, shown when the app language is Hindi
+  nameHi: text("name_hi"),
+  descriptionHi: text("description_hi"),
   tokens: integer("tokens").notNull(),
   pricePaise: integer("price_paise").notNull(),
   active: boolean("active").notNull().default(true),
@@ -107,6 +111,17 @@ export const deliveryAllocations = pgTable("delivery_allocations", {
   tokens: integer("tokens").notNull(),
 });
 
+export type AuditMeta = {
+  planName?: string;
+  planNameHi?: string | null;
+  amountPaise?: number;
+  tokens?: number;
+  packets?: number;
+  /** Delivery date, YYYY-MM-DD */
+  day?: string;
+  note?: string;
+};
+
 // Every token change on a customer's account, shown on their page.
 export const auditLog = pgTable(
   "audit_log",
@@ -116,7 +131,9 @@ export const auditLog = pgTable(
     // purchase | grant | delivery | delivery_undo
     action: text("action").notNull(),
     tokensDelta: integer("tokens_delta").notNull(),
+    // English text, kept for reference; the UI renders from action + meta in the chosen language
     description: text("description").notNull(),
+    meta: jsonb("meta").$type<AuditMeta>(),
     actorEmail: text("actor_email").notNull(),
     actorName: text("actor_name").notNull(),
     // customer | admin | delivery | system

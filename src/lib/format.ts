@@ -9,8 +9,11 @@ export function rupees(paise: number) {
   }).format(paise / 100);
 }
 
-export function formatDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("en-IN", {
+export type Locale = "en" | "hi";
+const intlLocale = (l: Locale) => (l === "hi" ? "hi-IN" : "en-IN");
+
+export function formatDate(d: Date | string, locale: Locale = "en") {
+  return new Date(d).toLocaleDateString(intlLocale(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -32,8 +35,8 @@ export function daysUntil(d: Date) {
   return Math.ceil((d.getTime() - Date.now()) / 86_400_000);
 }
 
-export function formatDateTime(d: Date | string) {
-  return new Date(d).toLocaleString("en-IN", {
+export function formatDateTime(d: Date | string, locale: Locale = "en") {
+  return new Date(d).toLocaleString(intlLocale(locale), {
     day: "numeric",
     month: "short",
     hour: "numeric",

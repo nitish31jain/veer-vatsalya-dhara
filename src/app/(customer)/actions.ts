@@ -10,13 +10,14 @@ import { normalizeIndianMobile } from "@/lib/phone";
 import { createCashfreeOrder } from "@/lib/cashfree";
 import { effectivePricePaise, isPlanPurchasable } from "@/lib/plans";
 import { isTestModeOn } from "@/lib/settings";
+import { getT } from "@/i18n/server";
 
 export type FormState = { error?: string; ok?: boolean };
 
 export async function updateProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const { user } = await requireUser({ allowIncompleteProfile: true });
   const whatsapp = normalizeIndianMobile(String(formData.get("whatsapp") ?? ""));
-  if (!whatsapp) return { error: "Enter a valid 10-digit Indian mobile number" };
+  if (!whatsapp) return { error: (await getT()).t.profile.invalidPhone };
   const address = String(formData.get("address") ?? "").trim().slice(0, 500) || null;
 
   const wasIncomplete = !user.whatsapp;
@@ -31,7 +32,7 @@ export async function startPurchase(planId: string): Promise<{ paymentSessionId?
   // ₹1 test pricing only for admins, and only while test mode is on.
   const testPricing = access.isAdmin && (await isTestModeOn());
   const [plan] = await db.select().from(schema.plans).where(eq(schema.plans.id, planId));
-  if (!plan || !isPlanPurchasable(plan, testPricing)) return { error: "This plan is no longer available" };
+  if (!plan || !isPlanPurchasable(plan, testPricing)) return { error: (await getT()).t.payment.planUnavailable };
 
   const amountPaise = effectivePricePaise(plan, testPricing);
   const orderId = `MILK_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
@@ -59,6 +60,6 @@ export async function startPurchase(planId: string): Promise<{ paymentSessionId?
   } catch (e) {
     console.error(e);
     await db.update(schema.orders).set({ status: "FAILED" }).where(eq(schema.orders.id, orderId));
-    return { error: "Could not start payment. Please try again." };
+    return { error: (await getT()).t.payment.couldNotStart };
   }
 }

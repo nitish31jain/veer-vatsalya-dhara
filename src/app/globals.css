@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist-sans), var(--font-devanagari);
   --color-brand-50: #f2f8ee;
   --color-brand-100: #e0efd6;
   --color-brand-600: #3f7d20;
@@ -12,7 +12,7 @@
 body {
   background: #f7f6f2;
   color: #1c1c1a;
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), var(--font-devanagari), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
